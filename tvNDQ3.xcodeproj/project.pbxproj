@@ -29,9 +29,22 @@
 		54AEC8732E7CC4FD00073EF7 /* tvNDQ3UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = tvNDQ3UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		54AEC89C2E7CCBAB00073EF7 /* Exceptions for "tvNDQ3" folder in "tvNDQ3" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 54AEC85B2E7CC4FB00073EF7 /* tvNDQ3 */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		54AEC85E2E7CC4FB00073EF7 /* tvNDQ3 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				54AEC89C2E7CCBAB00073EF7 /* Exceptions for "tvNDQ3" folder in "tvNDQ3" target */,
+			);
 			path = tvNDQ3;
 			sourceTree = "<group>";
 		};
@@ -400,6 +413,7 @@
 				DEVELOPMENT_TEAM = 74KYRUD22B;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = tvNDQ3/Info.plist;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIUserInterfaceStyle = Automatic;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -429,6 +443,7 @@
 				DEVELOPMENT_TEAM = 74KYRUD22B;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = tvNDQ3/Info.plist;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIUserInterfaceStyle = Automatic;
 				LD_RUNPATH_SEARCH_PATHS = (

@@ -13,6 +13,9 @@
       "size" : "400x240"
     },
     {
+      "filename" : "app-icon-store.imageset"
+    },
+    {
       "filename" : "Top Shelf Image Wide.imageset",
       "idiom" : "tv",
       "role" : "top-shelf-image-wide",
@@ -23,6 +26,9 @@
       "idiom" : "tv",
       "role" : "top-shelf-image",
       "size" : "1920x720"
+    },
+    {
+      "filename" : "top-shelf.imageset"
     }
   ],
   "info" : {
