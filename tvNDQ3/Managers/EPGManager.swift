@@ -16,6 +16,10 @@ final class EPGManager: ObservableObject {
     @Published private(set) var channelsById: [String: String] = [:] // id -> display-name
     @Published private(set) var lastUpdated: Date?
     @Published private(set) var errorMessage: String?
+    @Published private(set) var lastFileURL: URL?
+    @Published private(set) var lastFileSizeBytes: Int64 = 0
+    @Published private(set) var channelCount: Int = 0
+    @Published private(set) var programCount: Int = 0
     
     private let parser = EPGParser()
     private init() {}
@@ -37,7 +41,11 @@ final class EPGManager: ObservableObject {
                 self.channelsById = result.channels
                 self.programsByChannelName = byName
                 self.programsByChannelId = byId
+                self.channelCount = result.channels.count
+                self.programCount = result.programs.count
                 self.lastUpdated = Date()
+                self.lastFileURL = url
+                self.lastFileSizeBytes = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value ?? 0
                 self.errorMessage = nil
             }
         } catch {
@@ -45,6 +53,11 @@ final class EPGManager: ObservableObject {
                 self.errorMessage = error.localizedDescription
             }
         }
+    }
+    
+    func reload() {
+        guard let url = lastFileURL else { return }
+        loadFromFile(at: url)
     }
     
     func currentProgram(for channelName: String, at date: Date = Date()) -> EPGProgram? {
@@ -63,5 +76,10 @@ final class EPGManager: ObservableObject {
             return programsByChannelId[id] ?? []
         }
         return []
+    }
+    
+    func channelId(forDisplayName name: String) -> String? {
+        if let id = channelsById.first(where: { $0.value == name })?.key { return id }
+        return channelsById.first(where: { $0.value.compare(name, options: .caseInsensitive) == .orderedSame })?.key
     }
 }
