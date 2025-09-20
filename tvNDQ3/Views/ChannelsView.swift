@@ -91,6 +91,11 @@ struct ChannelsView: View {
                 loadChannels()
             }
         }
+        .onExitCommand {
+            if selectedGroup != nil {
+                selectedGroup = nil
+            }
+        }
         .alert("Playback Error", isPresented: $showingPlayError) {
             Button("OK") { }
         } message: {
