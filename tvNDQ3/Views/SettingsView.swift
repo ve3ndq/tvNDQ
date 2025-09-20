@@ -129,6 +129,11 @@ struct SettingsView: View {
                         Text("Saved: \(saved.lastPathComponent)")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                            .onChange(of: epgDownloader.lastSavedURL) { _, newValue in
+                                if let url = newValue {
+                                    EPGManager.shared.loadFromFile(at: url)
+                                }
+                            }
                     }
                     if let err = epgDownloader.errorMessage {
                         Text("Error: \(err)")

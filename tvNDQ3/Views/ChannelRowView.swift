@@ -12,16 +12,25 @@ struct ChannelRowView: View {
     let isFavorite: Bool
     let onPlay: () -> Void
     let onToggleFavorite: () -> Void
+    let subtitle: String? = nil
     
     @FocusState private var isFocused: Bool
     
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(channel.name)
-                    .font(.body)
-                    .lineLimit(1)
-                    .foregroundColor(.primary)
+                HStack(spacing: 6) {
+                    Text(channel.name)
+                        .font(.body)
+                        .lineLimit(1)
+                        .foregroundColor(.primary)
+                    if let subtitle = subtitle, !subtitle.isEmpty {
+                        Text("— \(subtitle)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                }
             }
             
             Spacer()
