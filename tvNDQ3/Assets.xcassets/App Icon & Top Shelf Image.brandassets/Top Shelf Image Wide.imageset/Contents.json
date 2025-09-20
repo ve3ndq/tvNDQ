@@ -1,13 +1,11 @@
 {
   "images" : [
     {
+      "filename" : "top-shelf-wide.png",
       "idiom" : "tv",
       "scale" : "1x"
-    },
-    {
-      "idiom" : "tv",
-      "scale" : "2x"
     }
+    
   ],
   "info" : {
     "author" : "xcode",
