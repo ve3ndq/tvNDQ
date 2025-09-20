@@ -23,8 +23,8 @@ struct EPGDebugView: View {
                     }
                     .disabled(epgManager.lastFileURL == nil)
                     
-                    Button(action: openDocumentsFolder) {
-                        Label("Open Documents", systemImage: "folder")
+                    Button(action: {}) {
+                        Label("Saved in Caches/EPG", systemImage: "folder")
                     }
                 }
                 .buttonStyle(.bordered)

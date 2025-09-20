@@ -49,11 +49,21 @@ class EPGDownloader: NSObject, ObservableObject {
         }
     }
     
-    private func saveToDocuments(tempURL: URL, originalURL: URL) throws -> URL {
+    private func storageDirectory() throws -> URL {
         let fm = FileManager.default
-        let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let base = fm.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let dir = base.appendingPathComponent("EPG", isDirectory: true)
+        if !fm.fileExists(atPath: dir.path) {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
+    
+    private func saveToStorage(tempURL: URL, originalURL: URL) throws -> URL {
+        let fm = FileManager.default
+        let dir = try storageDirectory()
         let filename = originalURL.lastPathComponent.isEmpty ? "guide.xml" : originalURL.lastPathComponent
-        let dest = docs.appendingPathComponent(filename)
+        let dest = dir.appendingPathComponent(filename)
         if fm.fileExists(atPath: dest.path) {
             try fm.removeItem(at: dest)
         }
@@ -76,7 +86,7 @@ extension EPGDownloader: URLSessionDownloadDelegate {
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         let originalURL = downloadTask.originalRequest?.url
         do {
-            let dest = try self.saveToDocuments(tempURL: location, originalURL: originalURL ?? URL(fileURLWithPath: "guide.xml"))
+            let dest = try self.saveToStorage(tempURL: location, originalURL: originalURL ?? URL(fileURLWithPath: "guide.xml"))
             DispatchQueue.main.async {
                 self.lastSavedURL = dest
                 if let size = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? NSNumber)?.int64Value {

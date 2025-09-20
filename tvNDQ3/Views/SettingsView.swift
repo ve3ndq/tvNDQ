@@ -88,7 +88,7 @@ struct SettingsView: View {
                                 .font(.caption)
                                 .foregroundColor(.red)
                         }
-                        Text("The URL to your XMLTV guide file")
+                        Text("The URL to your XMLTV guide file. File is saved under app Caches/EPG.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
