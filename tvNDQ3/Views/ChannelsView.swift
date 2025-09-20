@@ -78,10 +78,11 @@ struct ChannelsView: View {
             .navigationTitle("Channels")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Refresh") {
-                        loadChannels()
+                    if selectedGroup != nil {
+                        Button("Back") {
+                            selectedGroup = nil
+                        }
                     }
-                    .disabled(m3uParser.isLoading)
                 }
             }
         }
@@ -124,11 +125,6 @@ struct ChannelsView: View {
     private func channelListView(for group: ChannelGroup) -> some View {
         VStack {
             HStack {
-                Button("← Back") {
-                    selectedGroup = nil
-                }
-                .font(.title2)
-                
                 Spacer()
                 
                 Text(group.name)
