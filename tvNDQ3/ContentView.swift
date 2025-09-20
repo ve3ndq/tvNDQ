@@ -15,6 +15,12 @@ struct ContentView: View {
                     Image(systemName: "heart.fill")
                     Text("Favorites")
                 }
+
+            SearchView()
+                .tabItem {
+                    Image(systemName: "magnifyingglass")
+                    Text("Search")
+                }
             
             ChannelsView()
                 .tabItem {
