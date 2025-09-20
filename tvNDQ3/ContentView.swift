@@ -22,6 +22,12 @@ struct ContentView: View {
                     Text("Search")
                 }
             
+            EPGDebugView()
+                .tabItem {
+                    Image(systemName: "ladybug")
+                    Text("EPG Debug")
+                }
+
             ChannelsView()
                 .tabItem {
                     Image(systemName: "tv")

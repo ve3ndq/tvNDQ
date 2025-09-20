@@ -12,6 +12,8 @@ final class EPGManager: ObservableObject {
     static let shared = EPGManager()
     
     @Published private(set) var programsByChannelName: [String: [EPGProgram]] = [:]
+    @Published private(set) var programsByChannelId: [String: [EPGProgram]] = [:]
+    @Published private(set) var channelsById: [String: String] = [:] // id -> display-name
     @Published private(set) var lastUpdated: Date?
     @Published private(set) var errorMessage: String?
     
@@ -22,17 +24,19 @@ final class EPGManager: ObservableObject {
         do {
             let data = try Data(contentsOf: url)
             let result = parser.parse(data: data)
-            // Heuristic: build reverse map from channel display-name to id
             var byName: [String: [EPGProgram]] = [:]
+            var byId: [String: [EPGProgram]] = [:]
             for p in result.programs {
+                byId[p.channelId, default: []].append(p)
                 let name = result.channels[p.channelId] ?? p.channelId
                 byName[name, default: []].append(p)
             }
-            for key in byName.keys {
-                byName[key]?.sort { $0.start < $1.start }
-            }
+            for key in byName.keys { byName[key]?.sort { $0.start < $1.start } }
+            for key in byId.keys { byId[key]?.sort { $0.start < $1.start } }
             DispatchQueue.main.async {
+                self.channelsById = result.channels
                 self.programsByChannelName = byName
+                self.programsByChannelId = byId
                 self.lastUpdated = Date()
                 self.errorMessage = nil
             }
@@ -47,5 +51,17 @@ final class EPGManager: ObservableObject {
         guard let list = programsByChannelName[channelName] else { return nil }
         // binary search could be added; linear is acceptable to start
         return list.first { date >= $0.start && date < $0.end }
+    }
+
+    func programs(forDisplayName name: String) -> [EPGProgram] {
+        // Find the channel id for this display-name
+        if let id = channelsById.first(where: { $0.value == name })?.key {
+            return programsByChannelId[id] ?? []
+        }
+        // attempt case-insensitive fallback
+        if let id = channelsById.first(where: { $0.value.compare(name, options: .caseInsensitive) == .orderedSame })?.key {
+            return programsByChannelId[id] ?? []
+        }
+        return []
     }
 }
