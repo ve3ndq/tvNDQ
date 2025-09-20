@@ -76,15 +76,7 @@ struct ChannelsView: View {
                 }
             }
             .navigationTitle("Channels")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    if selectedGroup != nil {
-                        Button("Back") {
-                            selectedGroup = nil
-                        }
-                    }
-                }
-            }
+            // Toolbar intentionally left empty to hide top-right button
         }
         .onAppear {
             if m3uParser.channelGroups.isEmpty {
