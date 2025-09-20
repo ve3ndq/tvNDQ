@@ -11,7 +11,9 @@ import Combine
 struct SettingsView: View {
     @StateObject private var settingsManager = SettingsManager()
     @StateObject private var m3uParser = M3UParser()
+    @StateObject private var epgDownloader = EPGDownloader()
     @State private var tempM3UURL: String = ""
+    @State private var tempEPGURL: String = ""
     @State private var showingResetAlert = false
     @State private var showingURLError = false
     
@@ -75,6 +77,66 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                 }
                 
+                Section(header: Text("EPG (XMLTV)")) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("EPG URL")
+                            .font(.headline)
+                        TextField("Enter EPG XMLTV URL", text: $tempEPGURL)
+                            .onSubmit { updateEPGURL() }
+                        if !settingsManager.isValidURL(tempEPGURL) && !tempEPGURL.isEmpty {
+                            Text("Invalid URL format")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                        Text("The URL to your XMLTV guide file")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 8)
+
+                    HStack {
+                        Button("Update URL") { updateEPGURL() }
+                            .disabled(!settingsManager.isValidURL(tempEPGURL))
+                        Spacer()
+                        Button("Reset to Default") {
+                            tempEPGURL = Secrets.defaultEPGURL
+                            updateEPGURL()
+                        }
+                    }
+
+                    Button(action: downloadEPGNow) {
+                        HStack {
+                            if epgDownloader.isDownloading {
+                                ProgressView(value: epgDownloader.progress)
+                                    .progressViewStyle(.linear)
+                                    .frame(maxWidth: 200)
+                                Text("Downloading \(Int(epgDownloader.progress * 100))%")
+                            } else {
+                                Image(systemName: "arrow.down.circle")
+                                Text("Download EPG Now")
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
+                    .disabled(epgDownloader.isDownloading)
+                    .buttonStyle(.plain)
+                    
+                    if let saved = epgDownloader.lastSavedURL {
+                        Text("Saved: \(saved.lastPathComponent)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    if let err = epgDownloader.errorMessage {
+                        Text("Error: \(err)")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                }
+                
                 Section(header: Text("Playback")) {
                     Toggle("Use VLC URL Scheme", isOn: $settingsManager.useVLCScheme)
                 }
@@ -122,6 +184,7 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .onAppear {
                 tempM3UURL = settingsManager.m3uURL
+                tempEPGURL = settingsManager.epgURL
             }
         }
         .alert("Reset Settings", isPresented: $showingResetAlert) {
@@ -152,6 +215,18 @@ struct SettingsView: View {
         Task {
             await m3uParser.parseM3U(from: settingsManager.m3uURL)
         }
+    }
+    
+    private func updateEPGURL() {
+        if settingsManager.isValidURL(tempEPGURL) {
+            settingsManager.epgURL = tempEPGURL
+        } else {
+            showingURLError = true
+        }
+    }
+    
+    private func downloadEPGNow() {
+        epgDownloader.download(from: settingsManager.epgURL)
     }
 }
 

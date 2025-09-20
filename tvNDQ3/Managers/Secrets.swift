@@ -12,5 +12,9 @@ import Foundation
 struct Secrets {
     /// Default M3U playlist URL used when no value is stored in UserDefaults.
     /// Update this to your actual default URL if needed.
-    static let defaultM3UURL: String = "https://iptv-org.github.io/iptv/index.m3u"
+    static let defaultM3UURL: String = "http://robo.stream:2082/get.php?username=cli2562&password=cWSBCfka&type=m3u_plus&output=mpegts"
+    
+    /// Default EPG (XMLTV) URL used for guide downloads.
+    /// Replace with your preferred XMLTV feed.
+    static let defaultEPGURL: String = "https://iptv-org.github.io/epg/guides/na/ca.xml"
 }
