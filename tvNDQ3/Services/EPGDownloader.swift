@@ -13,6 +13,9 @@ class EPGDownloader: NSObject, ObservableObject {
     @Published var progress: Double = 0.0 // 0.0...1.0
     @Published var errorMessage: String?
     @Published var lastSavedURL: URL?
+    @Published var totalBytesExpected: Int64 = 0
+    @Published var bytesReceived: Int64 = 0
+    @Published var lastResult: String?
     
     private var task: URLSessionDownloadTask?
     private var session: URLSession?
@@ -24,8 +27,11 @@ class EPGDownloader: NSObject, ObservableObject {
         }
         if isDownloading { return }
         errorMessage = nil
+        lastResult = nil
         isDownloading = true
         progress = 0
+        totalBytesExpected = 0
+        bytesReceived = 0
         
         let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
         self.session = session
@@ -62,6 +68,8 @@ extension EPGDownloader: URLSessionDownloadDelegate {
         let p = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
         DispatchQueue.main.async {
             self.progress = p
+            self.totalBytesExpected = totalBytesExpectedToWrite
+            self.bytesReceived = totalBytesWritten
         }
     }
     
@@ -71,10 +79,16 @@ extension EPGDownloader: URLSessionDownloadDelegate {
             let dest = try self.saveToDocuments(tempURL: location, originalURL: originalURL ?? URL(fileURLWithPath: "guide.xml"))
             DispatchQueue.main.async {
                 self.lastSavedURL = dest
+                if let size = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? NSNumber)?.int64Value {
+                    self.bytesReceived = size
+                    self.totalBytesExpected = max(self.totalBytesExpected, size)
+                }
+                self.lastResult = "Download complete"
             }
         } catch {
             DispatchQueue.main.async {
                 self.errorMessage = error.localizedDescription
+                self.lastResult = "Failed: \(error.localizedDescription)"
             }
         }
     }
@@ -84,6 +98,9 @@ extension EPGDownloader: URLSessionDownloadDelegate {
             self.isDownloading = false
             if let error = error as NSError?, error.code != NSURLErrorCancelled {
                 self.errorMessage = error.localizedDescription
+                self.lastResult = "Failed: \(error.localizedDescription)"
+            } else if (error as NSError?)?.code == NSURLErrorCancelled {
+                self.lastResult = "Cancelled"
             }
         }
         session.finishTasksAndInvalidate()

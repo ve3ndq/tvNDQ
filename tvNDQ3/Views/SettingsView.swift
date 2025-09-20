@@ -110,7 +110,7 @@ struct SettingsView: View {
                                 ProgressView(value: epgDownloader.progress)
                                     .progressViewStyle(.linear)
                                     .frame(maxWidth: 200)
-                                Text("Downloading \(Int(epgDownloader.progress * 100))%")
+                                Text("Downloading \(Int(epgDownloader.progress * 100))% (\(sizeString(epgDownloader.bytesReceived))/\(sizeString(epgDownloader.totalBytesExpected)))")
                             } else {
                                 Image(systemName: "arrow.down.circle")
                                 Text("Download EPG Now")
@@ -134,6 +134,11 @@ struct SettingsView: View {
                                     EPGManager.shared.loadFromFile(at: url)
                                 }
                             }
+                    }
+                    if let result = epgDownloader.lastResult {
+                        Text("Result: \\(result)")
+                            .font(.caption)
+                            .foregroundColor(result.hasPrefix("Failed") ? .red : .secondary)
                     }
                     if let err = epgDownloader.errorMessage {
                         Text("Error: \(err)")
@@ -233,6 +238,16 @@ struct SettingsView: View {
     private func downloadEPGNow() {
         epgDownloader.download(from: settingsManager.epgURL)
     }
+}
+
+// MARK: - Helpers
+private func sizeString(_ bytes: Int64) -> String {
+    guard bytes > 0 else { return "0 B" }
+    let units = ["B","KB","MB","GB","TB"]
+    var value = Double(bytes)
+    var i = 0
+    while value >= 1024 && i < units.count - 1 { value /= 1024; i += 1 }
+    return String(format: "%.1f %@", value, units[i])
 }
 
 #Preview {
