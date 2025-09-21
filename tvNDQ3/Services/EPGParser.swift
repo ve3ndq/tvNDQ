@@ -8,7 +8,7 @@
 
 import Foundation
 
-struct EPGProgram: Identifiable, Hashable {
+struct EPGProgram: Identifiable, Hashable, Codable {
     let id = UUID()
     let channelId: String
     let title: String

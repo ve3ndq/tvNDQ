@@ -23,11 +23,14 @@ final class EPGManager: ObservableObject {
     
     private let parser = EPGParser()
     private let lastEPGFilePathKey = "LastEPGFilePath"
+    private let parsedCacheFileName = "parsed_epg_cache.json"
     private init() {
         // Try restoring a cached EPG on background queue to avoid blocking UI
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard SettingsManager().autoLoadEPGOnLaunch else { return }
-            self?.restoreCachedEPG()
+            if !self!.loadParsedCache() {
+                self?.restoreCachedEPG()
+            }
         }
     }
     
@@ -56,6 +59,8 @@ final class EPGManager: ObservableObject {
                 self.errorMessage = nil
                 // Persist last file path for next launch
                 UserDefaults.standard.set(url.path, forKey: self.lastEPGFilePathKey)
+                // Save parsed cache for faster warm start
+                self.saveParsedCache()
             }
         }
     }
@@ -156,6 +161,65 @@ final class EPGManager: ObservableObject {
             let l = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
             let r = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
             return l < r
+        }
+    }
+
+    // MARK: - Parsed Cache
+    private func cacheURL() -> URL? {
+        guard let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+        let dir = base.appendingPathComponent("EPG", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent(parsedCacheFileName)
+    }
+
+    private struct ParsedSnapshot: Codable {
+        let channelsById: [String:String]
+        let programs: [EPGProgram]
+        let lastUpdated: Date
+        let lastFileURLPath: String?
+        let lastFileSizeBytes: Int64
+    }
+
+    private func saveParsedCache() {
+        guard let url = cacheURL() else { return }
+        // Flatten programs into array; rebuild indices on load
+        let allPrograms = programsByChannelId.values.flatMap { $0 }
+        let snapshot = ParsedSnapshot(channelsById: channelsById, programs: allPrograms, lastUpdated: lastUpdated ?? Date(), lastFileURLPath: lastFileURL?.path, lastFileSizeBytes: lastFileSizeBytes)
+        do {
+            let data = try JSONEncoder().encode(snapshot)
+            try data.write(to: url, options: .atomic)
+        } catch {
+            // best-effort cache; ignore errors
+        }
+    }
+
+    private func loadParsedCache() -> Bool {
+        guard let url = cacheURL(), let data = try? Data(contentsOf: url) else { return false }
+        do {
+            let snapshot = try JSONDecoder().decode(ParsedSnapshot.self, from: data)
+            var byName: [String:[EPGProgram]] = [:]
+            var byId: [String:[EPGProgram]] = [:]
+            for p in snapshot.programs {
+                byId[p.channelId, default: []].append(p)
+                let name = snapshot.channelsById[p.channelId] ?? p.channelId
+                byName[name, default: []].append(p)
+            }
+            for key in byName.keys { byName[key]?.sort { $0.start < $1.start } }
+            for key in byId.keys { byId[key]?.sort { $0.start < $1.start } }
+            DispatchQueue.main.async {
+                self.channelsById = snapshot.channelsById
+                self.programsByChannelName = byName
+                self.programsByChannelId = byId
+                self.channelCount = snapshot.channelsById.count
+                self.programCount = snapshot.programs.count
+                self.lastUpdated = snapshot.lastUpdated
+                if let path = snapshot.lastFileURLPath { self.lastFileURL = URL(fileURLWithPath: path) }
+                self.lastFileSizeBytes = snapshot.lastFileSizeBytes
+                self.errorMessage = nil
+            }
+            return true
+        } catch {
+            return false
         }
     }
 }
