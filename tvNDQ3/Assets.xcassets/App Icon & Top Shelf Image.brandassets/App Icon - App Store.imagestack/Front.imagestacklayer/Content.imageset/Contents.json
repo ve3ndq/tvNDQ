@@ -1,10 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "app-icon-front-1x.png",
-      "idiom" : "universal"
-    },
-    {
+      "filename" : "app-icon-front-1280x768.png",
       "idiom" : "tv"
     }
   ],
