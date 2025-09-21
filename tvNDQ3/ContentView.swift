@@ -16,25 +16,13 @@ struct ContentView: View {
                     Text("Favorite EPG")
                 }            
                 
-                FavoritesView()
-                .tabItem {
-                    Image(systemName: "heart.fill")
-                    Text("Favorites")
-                }
+
 
             SearchView()
                 .tabItem {
                     Image(systemName: "magnifyingglass")
                     Text("Search")
                 }
-            
-            EPGDebugView()
-                .tabItem {
-                    Image(systemName: "ladybug")
-                    Text("EPG Debug")
-                }
-            
-
 
             ChannelsView()
                 .tabItem {
@@ -42,10 +30,17 @@ struct ContentView: View {
                     Text("Channels")
                 }
             
+
+
             SettingsView()
                 .tabItem {
                     Image(systemName: "gear")
                     Text("Settings")
+                }
+            EPGDebugView()
+                .tabItem {
+                    Image(systemName: "ladybug")
+                    Text("EPG Debug")
                 }
         }
     }

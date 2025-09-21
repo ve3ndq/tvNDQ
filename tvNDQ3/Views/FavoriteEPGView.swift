@@ -56,8 +56,6 @@ struct FavoriteEPGView: View {
                             HStack(spacing: 8) {
                                 Text(ch.name).font(.headline)
                                 Spacer()
-                                    Text(ch.name).font(.subheadline).lineLimit(1)
-                                    Spacer()
                                     Button {
                                         playChannel(ch)
                                     } label: {
