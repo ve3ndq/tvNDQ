@@ -4,6 +4,8 @@ import Combine
 struct FavoriteEPGView: View {
     @ObservedObject private var favoritesManager = FavoritesManager.shared
     @ObservedObject private var epgManager = EPGManager.shared
+    @State private var showingPlayError = false
+    @State private var playErrorMessage = ""
 
     struct Row: Identifiable {
         let id = UUID()
@@ -54,57 +56,62 @@ struct FavoriteEPGView: View {
                             HStack(spacing: 8) {
                                 Text(ch.name).font(.headline)
                                 Spacer()
-                                Text(row.matchType.uppercased())
-                                    .font(.caption2)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(color(for: row.matchType))
-                                    )
-                            }
-                            if let key = row.matchKey {
-                                Text("EPG key: \(key)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            } else {
-                                Text("EPG key: (none)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    Text(ch.name).font(.subheadline).lineLimit(1)
+                                    Spacer()
+                                    Button {
+                                        playChannel(ch)
+                                    } label: {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "play.fill")
+                                            Text("Play")
+                                        }
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 2)
+                                        .background(Color.blue)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(4)
+                                        .font(.caption2)
+                                    }
+                                    .buttonStyle(.plain)
                             }
                             if let cur = row.current {
-                                Text("Now: \(cur.title.isEmpty ? "(no title)" : cur.title) — \(timeString(cur.start))–\(timeString(cur.end))")
-                                    .font(.body)
+                                    Text("Now: \(cur.title.isEmpty ? "(no title)" : cur.title) — \(timeString(cur.start))–\(timeString(cur.end))")
+                                        .font(.caption)
                             } else {
-                                Text("Now: (none)").font(.body)
+                                    Text("Now: (none)").font(.caption)
                             }
                             if let next = row.next {
-                                Text("Next: \(next.title.isEmpty ? "(no title)" : next.title) — \(timeString(next.start))–\(timeString(next.end))")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    Text("Next: \(next.title.isEmpty ? "(no title)" : next.title) — \(timeString(next.start))–\(timeString(next.end))")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
                             }
                         }
-                        .padding(.vertical, 6)
+                            .padding(.vertical, 4)
                     }
                 }
 
                 Section(header: Text("Stats")) {
                     HStack {
-                        Text("Channels in EPG").foregroundColor(.secondary)
+                            Text("Channels in EPG").foregroundColor(.secondary).font(.caption2)
                         Spacer()
-                        Text("\(epgManager.channelCount)")
+                            Text("\(epgManager.channelCount)").font(.caption2)
                     }
                     HStack {
-                        Text("Programs in EPG").foregroundColor(.secondary)
+                            Text("Programs in EPG").foregroundColor(.secondary).font(.caption2)
                         Spacer()
-                        Text("\(epgManager.programCount)")
+                            Text("\(epgManager.programCount)").font(.caption2)
                     }
                     if let url = epgManager.lastFileURL {
-                        HStack { Text("Last file").foregroundColor(.secondary); Spacer(); Text(url.lastPathComponent) }
+                            HStack { Text("Last file").foregroundColor(.secondary).font(.caption2); Spacer(); Text(url.lastPathComponent).font(.caption2) }
                     }
                 }
             }
             .navigationTitle("Favorite EPG")
+        }
+        .alert("Playback Error", isPresented: $showingPlayError) {
+            Button("OK") {}
+        } message: {
+            Text(playErrorMessage)
         }
     }
 
@@ -133,6 +140,17 @@ struct FavoriteEPGView: View {
         case "normalized": return Color.blue.opacity(0.3)
         case "contains": return Color.orange.opacity(0.3)
         default: return Color.red.opacity(0.3)
+        }
+    }
+    
+    private func playChannel(_ channel: Channel) {
+        VLCLauncher.shared.playChannel(channel) { success in
+            if !success {
+                DispatchQueue.main.async {
+                    playErrorMessage = "Could not play channel. Ensure VLC is installed or try a different player."
+                    showingPlayError = true
+                }
+            }
         }
     }
 }

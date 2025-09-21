@@ -10,7 +10,13 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         TabView {
-            FavoritesView()
+            FavoriteEPGView()
+                .tabItem {
+                    Image(systemName: "list.bullet.rectangle")
+                    Text("Favorite EPG")
+                }            
+                
+                FavoritesView()
                 .tabItem {
                     Image(systemName: "heart.fill")
                     Text("Favorites")
@@ -28,11 +34,7 @@ struct ContentView: View {
                     Text("EPG Debug")
                 }
             
-            FavoriteEPGView()
-                .tabItem {
-                    Image(systemName: "list.bullet.rectangle")
-                    Text("Favorite EPG")
-                }
+
 
             ChannelsView()
                 .tabItem {

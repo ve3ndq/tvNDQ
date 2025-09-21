@@ -2,7 +2,8 @@
 //  EPGParser.swift
 //  tvNDQ3
 //
-//  Minimal XMLTV parser extracting channel display-names and programme title windows.
+//  XMLTV parser extracting channel display-names and programme title windows.
+//  Based on approach from https://github.com/Rubenfer/XMLTV
 //
 
 import Foundation
@@ -26,22 +27,12 @@ final class EPGParser: NSObject, XMLParserDelegate {
     private var currentProgrammeEnd: Date?
     private var currentTitleBuffer: String = ""
     
-    private let dateFormats: [String] = [
-        "yyyyMMddHHmmss ZZZZZ",
-        "yyyyMMddHHmmss",
-        "yyyyMMddHHmm ZZZZZ",
-        "yyyyMMddHHmm"
-    ]
-    
-    private func createDateFormatters() -> [DateFormatter] {
-        let locale = Locale(identifier: "en_US_POSIX")
-        return dateFormats.map { fmt in
-            let df = DateFormatter()
-            df.locale = locale
-            df.dateFormat = fmt
-            return df
-        }
-    }
+    private let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMddHHmmss Z"
+        return formatter
+    }()
     
     func parse(data: Data) -> (channels: [String: String], programs: [EPGProgram]) {
         channelNamesById.removeAll()
@@ -72,20 +63,24 @@ final class EPGParser: NSObject, XMLParserDelegate {
     // MARK: - XMLParserDelegate
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
         currentElement = elementName
-        if elementName == "channel" {
+        
+        switch elementName {
+        case "channel":
             if let id = attributeDict["id"] {
                 channelNamesById[id] = ""
                 currentChannelId = id
             }
-        } else if elementName == "display-name" {
+        case "display-name":
             currentTitleBuffer = ""
-        } else if elementName == "programme" {
+        case "programme":
             currentProgrammeChannel = attributeDict["channel"]
             currentProgrammeStart = parseDate(attributeDict["start"])
-            currentProgrammeEnd = parseDate(attributeDict["stop"]) ?? parseDate(attributeDict["end"]) // some feeds use stop
+            currentProgrammeEnd = parseDate(attributeDict["stop"])
             currentTitleBuffer = ""
-        } else if elementName == "title" {
+        case "title":
             currentTitleBuffer = ""
+        default:
+            break
         }
     }
     
@@ -96,47 +91,58 @@ final class EPGParser: NSObject, XMLParserDelegate {
     }
     
     func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
-        if elementName == "display-name" {
+        switch elementName {
+        case "display-name":
             if let id = currentChannelId {
-                let existingEmpty = (channelNamesById[id]?.isEmpty ?? true)
-                if existingEmpty {
-                    channelNamesById[id] = currentTitleBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+                let displayName = currentTitleBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+                if channelNamesById[id]?.isEmpty == true && !displayName.isEmpty {
+                    channelNamesById[id] = displayName
                 }
             }
-        } else if elementName == "title" {
-            // just keep buffer; handled when programme ends
-        } else if elementName == "programme" {
+        case "title":
+            // Keep buffer for programme end
+            break
+        case "programme":
             if let ch = currentProgrammeChannel, let s = currentProgrammeStart, let e = currentProgrammeEnd {
-                let title = currentTitleBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
-                programs.append(EPGProgram(channelId: ch, title: title.isEmpty ? "" : title, start: s, end: e))
+                // Create local copies to avoid any threading issues
+                let channelId = String(ch)
+                let startDate = Date(timeIntervalSince1970: s.timeIntervalSince1970)
+                let endDate = Date(timeIntervalSince1970: e.timeIntervalSince1970)
+                let programTitle = String(currentTitleBuffer.trimmingCharacters(in: .whitespacesAndNewlines))
+                
+                let program = EPGProgram(channelId: channelId, title: programTitle, start: startDate, end: endDate)
+                programs.append(program)
             }
             currentProgrammeChannel = nil
             currentProgrammeStart = nil
             currentProgrammeEnd = nil
             currentTitleBuffer = ""
+        case "channel":
+            currentChannelId = nil
+        default:
+            break
         }
-    if elementName == "channel" { currentChannelId = nil }
-    currentElement = ""
+        currentElement = ""
     }
     
     // MARK: - Helpers
-    private func parseDate(_ raw: String?) -> Date? {
-        guard var s = raw else { return nil }
-        // XMLTV may encode timezone like +0000 or +00:00; normalize to ZZZZZ
-        if s.count >= 19, s[s.index(s.startIndex, offsetBy: 15)] != " " { // insert space before tz
-            // e.g., yyyyMMddHHmmss+0000 -> yyyyMMddHHmmss +0000
-            let idx = s.index(s.startIndex, offsetBy: 14)
-            s.insert(" ", at: idx)
+    private func parseDate(_ dateString: String?) -> Date? {
+        guard let dateString = dateString else { return nil }
+        
+        // Handle different XMLTV date formats
+        var normalizedDate = dateString
+        
+        // Handle timezone formats: +0000 vs +00:00
+        if normalizedDate.count >= 15 {
+            let timeIndex = normalizedDate.index(normalizedDate.startIndex, offsetBy: 14)
+            let timezonePart = String(normalizedDate[timeIndex...])
+            
+            // If timezone doesn't start with space, add it
+            if !timezonePart.hasPrefix(" ") {
+                normalizedDate.insert(" ", at: timeIndex)
+            }
         }
         
-        // Create formatters locally to avoid thread safety issues
-        let locale = Locale(identifier: "en_US_POSIX")
-        for fmt in dateFormats {
-            let df = DateFormatter()
-            df.locale = locale
-            df.dateFormat = fmt
-            if let d = df.date(from: s) { return d }
-        }
-        return nil
+        return dateFormatter.date(from: normalizedDate)
     }
 }
