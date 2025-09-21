@@ -88,21 +88,7 @@ struct FavoriteEPGView: View {
                     }
                 }
 
-                Section(header: Text("Stats")) {
-                    HStack {
-                            Text("Channels in EPG").foregroundColor(.secondary).font(.caption2)
-                        Spacer()
-                            Text("\(epgManager.channelCount)").font(.caption2)
-                    }
-                    HStack {
-                            Text("Programs in EPG").foregroundColor(.secondary).font(.caption2)
-                        Spacer()
-                            Text("\(epgManager.programCount)").font(.caption2)
-                    }
-                    if let url = epgManager.lastFileURL {
-                            HStack { Text("Last file").foregroundColor(.secondary).font(.caption2); Spacer(); Text(url.lastPathComponent).font(.caption2) }
-                    }
-                }
+                
             }
             .navigationTitle("Favorite EPG")
         }
