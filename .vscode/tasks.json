@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build tvOS app",
+			"type": "shell",
+			"command": "set -o pipefail; xcodebuild -project tvNDQ3.xcodeproj -scheme tvNDQ3 -destination 'generic/platform=tvOS Simulator' build",
+			"problemMatcher": [
+				"$xcodebuild-stylish"
+			],
+			"group": "build"
+		}
+	]
+}

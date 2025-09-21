@@ -24,6 +24,8 @@ final class EPGManager: ObservableObject {
     private let parser = EPGParser()
     private let lastEPGFilePathKey = "LastEPGFilePath"
     private let parsedCacheFileName = "parsed_epg_cache.json"
+    private let downloader = EPGDownloader()
+    private var cancellables: Set<AnyCancellable> = []
     private init() {
         // Try restoring a cached EPG on background queue to avoid blocking UI
         DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -32,6 +34,15 @@ final class EPGManager: ObservableObject {
                 self?.restoreCachedEPG()
             }
         }
+
+        // Observe downloader completion and load file
+        downloader.$lastSavedURL
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] url in
+                guard let url = url else { return }
+                self?.loadFromFile(at: url)
+            }
+            .store(in: &cancellables)
     }
     
     func loadFromFile(at url: URL) {
@@ -61,6 +72,8 @@ final class EPGManager: ObservableObject {
                 UserDefaults.standard.set(url.path, forKey: self.lastEPGFilePathKey)
                 // Save parsed cache for faster warm start
                 self.saveParsedCache()
+                // After loading, check if stale (based on lastUpdated)
+                self.checkAndRefreshIfStale(referenceDate: self.lastUpdated)
             }
         }
     }
@@ -216,10 +229,30 @@ final class EPGManager: ObservableObject {
                 if let path = snapshot.lastFileURLPath { self.lastFileURL = URL(fileURLWithPath: path) }
                 self.lastFileSizeBytes = snapshot.lastFileSizeBytes
                 self.errorMessage = nil
+                // Check staleness against cached lastUpdated
+                self.checkAndRefreshIfStale(referenceDate: snapshot.lastUpdated)
             }
             return true
         } catch {
             return false
         }
+    }
+
+    // MARK: - Auto Refresh
+    private func checkAndRefreshIfStale(referenceDate: Date?) {
+        guard !downloader.isDownloading else { return }
+        guard let ref = referenceDate else { return }
+        let minutes = SettingsManager().autoRefreshInterval
+        let threshold: TimeInterval = Double(minutes) * 60
+        if Date().timeIntervalSince(ref) >= threshold {
+            refreshEPG()
+        }
+    }
+
+    private func refreshEPG() {
+        let settings = SettingsManager()
+        let urlString = settings.epgURL
+        guard settings.isValidURL(urlString) else { return }
+        downloader.download(from: urlString)
     }
 }
