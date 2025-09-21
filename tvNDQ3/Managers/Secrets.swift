@@ -16,5 +16,5 @@ struct Secrets {
     
     /// Default EPG (XMLTV) URL used for guide downloads.
     /// Replace with your preferred XMLTV feed.
-    static let defaultEPGURL: String = "https://iptv-org.github.io/epg/guides/na/ca.xml"
+    static let defaultEPGURL: String = "http://robo.stream:2082/epg.php?username=cli2562&password=cWSBCfka"
 }

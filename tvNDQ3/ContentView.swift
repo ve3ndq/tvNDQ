@@ -27,6 +27,12 @@ struct ContentView: View {
                     Image(systemName: "ladybug")
                     Text("EPG Debug")
                 }
+            
+            FavoriteEPGView()
+                .tabItem {
+                    Image(systemName: "list.bullet.rectangle")
+                    Text("Favorite EPG")
+                }
 
             ChannelsView()
                 .tabItem {

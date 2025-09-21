@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var tempEPGURL: String = ""
     @State private var showingResetAlert = false
     @State private var showingURLError = false
+    @State private var showingClearCacheAlert = false
     
     var body: some View {
         NavigationView {
@@ -107,10 +108,16 @@ struct SettingsView: View {
                     Button(action: downloadEPGNow) {
                         HStack {
                             if epgDownloader.isDownloading {
-                                ProgressView(value: epgDownloader.progress)
-                                    .progressViewStyle(.linear)
-                                    .frame(maxWidth: 200)
-                                Text("Downloading \(Int(epgDownloader.progress * 100))% (\(sizeString(epgDownloader.bytesReceived))/\(sizeString(epgDownloader.totalBytesExpected)))")
+                                if epgDownloader.totalBytesExpected > 0 {
+                                    ProgressView(value: epgDownloader.progress)
+                                        .progressViewStyle(.linear)
+                                        .frame(maxWidth: 200)
+                                    Text("Downloading \\(Int(epgDownloader.progress * 100))% (\(sizeString(epgDownloader.bytesReceived))/\(sizeString(epgDownloader.totalBytesExpected)))")
+                                } else {
+                                    ProgressView()
+                                        .progressViewStyle(.circular)
+                                    Text("Downloading (\(sizeString(epgDownloader.bytesReceived)))")
+                                }
                             } else {
                                 Image(systemName: "arrow.down.circle")
                                 Text("Download EPG Now")
@@ -126,14 +133,14 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     
                     if let saved = epgDownloader.lastSavedURL {
-                        Text("Saved: \(saved.lastPathComponent)")
+                        Text("Saved: \\(saved.lastPathComponent)")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                            .onChange(of: epgDownloader.lastSavedURL) { _, newValue in
-                                if let url = newValue {
-                                    EPGManager.shared.loadFromFile(at: url)
-                                }
-                            }
+                    }
+                    if let updated = EPGManager.shared.lastUpdated {
+                        Text("Last updated: \\((dateString(updated)))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                     if let result = epgDownloader.lastResult {
                         Text("Result: \\(result)")
@@ -170,9 +177,18 @@ struct SettingsView: View {
                     .padding(.vertical, 8)
                 }
                 
+                Section(header: Text("EPG")) {
+                    Toggle("Auto-load EPG on launch", isOn: $settingsManager.autoLoadEPGOnLaunch)
+                        .help("When enabled, the app loads the most recent cached EPG file on startup if available.")
+                }
+                
                 Section(header: Text("Data Management")) {
                     Button("Reset All Settings") {
                         showingResetAlert = true
+                    }
+                    .foregroundColor(.red)
+                    Button("Clear EPG Cache") {
+                        showingClearCacheAlert = true
                     }
                     .foregroundColor(.red)
                 }
@@ -197,6 +213,11 @@ struct SettingsView: View {
                 tempEPGURL = settingsManager.epgURL
             }
         }
+        .onChange(of: epgDownloader.lastSavedURL) { _, newValue in
+            if let url = newValue {
+                EPGManager.shared.loadFromFile(at: url)
+            }
+        }
         .alert("Reset Settings", isPresented: $showingResetAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Reset", role: .destructive) {
@@ -205,6 +226,14 @@ struct SettingsView: View {
             }
         } message: {
             Text("This will reset all settings to their default values. Are you sure?")
+        }
+        .alert("Clear EPG Cache", isPresented: $showingClearCacheAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Clear", role: .destructive) {
+                clearEPGCache()
+            }
+        } message: {
+            Text("This will delete all cached EPG files from Caches/EPG and clear saved ETag/Last-Modified headers.")
         }
         .alert("Invalid URL", isPresented: $showingURLError) {
             Button("OK") { }
@@ -238,6 +267,26 @@ struct SettingsView: View {
     private func downloadEPGNow() {
         epgDownloader.download(from: settingsManager.epgURL)
     }
+
+    private func clearEPGCache() {
+        // Remove cached files
+        let fm = FileManager.default
+        if let caches = fm.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            let dir = caches.appendingPathComponent("EPG", isDirectory: true)
+            if fm.fileExists(atPath: dir.path) {
+                try? fm.removeItem(at: dir)
+            }
+        }
+        // Clear downloader headers
+        let defaults = UserDefaults.standard
+        for (k, _) in defaults.dictionaryRepresentation() {
+            if k.hasPrefix("EPGCache_ETag_") || k.hasPrefix("EPGCache_LastMod_") { defaults.removeObject(forKey: k) }
+        }
+        // Clear EPGManager memory & persisted path
+        EPGManager.shared.reload() // if a file still exists, reload; otherwise below clears
+        EPGManager.shared.objectWillChange.send()
+        defaults.removeObject(forKey: "LastEPGFilePath")
+    }
 }
 
 // MARK: - Helpers
@@ -248,6 +297,13 @@ private func sizeString(_ bytes: Int64) -> String {
     var i = 0
     while value >= 1024 && i < units.count - 1 { value /= 1024; i += 1 }
     return String(format: "%.1f %@", value, units[i])
+}
+
+private func dateString(_ d: Date) -> String {
+    let df = DateFormatter()
+    df.dateStyle = .short
+    df.timeStyle = .short
+    return df.string(from: d)
 }
 
 #Preview {

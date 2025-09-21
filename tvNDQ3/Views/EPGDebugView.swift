@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct EPGDebugView: View {
     @ObservedObject private var epgManager = EPGManager.shared
@@ -23,7 +26,7 @@ struct EPGDebugView: View {
                     }
                     .disabled(epgManager.lastFileURL == nil)
                     
-                    Button(action: {}) {
+                    Button(action: copyPathToClipboard) {
                         Label("Saved in Caches/EPG", systemImage: "folder")
                     }
                 }
@@ -83,14 +86,14 @@ struct EPGDebugView: View {
                 Text("Channels:")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text("\\(epgManager.channelCount)")
+                Text("\(epgManager.channelCount)")
                     .font(.caption)
             }
             HStack {
                 Text("Programs:")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text("\\(epgManager.programCount)")
+                Text("\(epgManager.programCount)")
                     .font(.caption)
             }
             if let updated = epgManager.lastUpdated {
@@ -112,7 +115,7 @@ struct EPGDebugView: View {
                 }
             }
             if let err = epgManager.errorMessage {
-                Text("Error: \\(err)")
+                Text("Error: \(err)")
                     .font(.caption)
                     .foregroundColor(.red)
             }
@@ -135,8 +138,13 @@ struct EPGDebugView: View {
         return df.string(from: d)
     }
     
-    private func openDocumentsFolder() {
-        // tvOS cannot open Finder, but leaving as placeholder for future tooling/logging.
+    private func copyPathToClipboard() {
+        // UIPasteboard is not available on tvOS. Only attempt to copy on platforms that support UIKit pasteboard.
+        #if canImport(UIKit) && !os(tvOS)
+        UIPasteboard.general.string = epgManager.lastFileURL?.path
+        #else
+        // No-op on tvOS and platforms without UIKit pasteboard.
+        #endif
     }
     
     private func format(_ date: Date) -> String {

@@ -19,6 +19,8 @@ class EPGDownloader: NSObject, ObservableObject {
     
     private var task: URLSessionDownloadTask?
     private var session: URLSession?
+    private let etagKeyPrefix = "EPGCache_ETag_"
+    private let lastModKeyPrefix = "EPGCache_LastMod_"
     
     func download(from urlString: String) {
         guard let url = URL(string: urlString) else {
@@ -35,7 +37,17 @@ class EPGDownloader: NSObject, ObservableObject {
         
         let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
         self.session = session
-        task = session.downloadTask(with: url)
+
+        var request = URLRequest(url: url)
+        // Add conditional headers if available
+        if let etag = UserDefaults.standard.string(forKey: etagKey(urlString)) {
+            request.addValue(etag, forHTTPHeaderField: "If-None-Match")
+        }
+        if let lastMod = UserDefaults.standard.string(forKey: lastModKey(urlString)) {
+            request.addValue(lastMod, forHTTPHeaderField: "If-Modified-Since")
+        }
+
+        task = session.downloadTask(with: request)
         task?.resume()
     }
     
@@ -70,15 +82,33 @@ class EPGDownloader: NSObject, ObservableObject {
         try fm.moveItem(at: tempURL, to: dest)
         return dest
     }
+
+    private func cachedFileURL(for originalURL: URL) -> URL? {
+        do {
+            let dir = try storageDirectory()
+            let filename = originalURL.lastPathComponent.isEmpty ? "guide.xml" : originalURL.lastPathComponent
+            let dest = dir.appendingPathComponent(filename)
+            return FileManager.default.fileExists(atPath: dest.path) ? dest : nil
+        } catch {
+            return nil
+        }
+    }
+
+    private func etagKey(_ urlString: String) -> String { etagKeyPrefix + urlString }
+    private func lastModKey(_ urlString: String) -> String { lastModKeyPrefix + urlString }
 }
 
 extension EPGDownloader: URLSessionDownloadDelegate {
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        guard totalBytesExpectedToWrite > 0 else { return }
-        let p = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
         DispatchQueue.main.async {
-            self.progress = p
-            self.totalBytesExpected = totalBytesExpectedToWrite
+            if totalBytesExpectedToWrite > 0 {
+                let p = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+                self.progress = p
+                self.totalBytesExpected = totalBytesExpectedToWrite
+            } else {
+                // Unknown size; keep progress indeterminate (0), still show bytes
+                self.progress = 0
+            }
             self.bytesReceived = totalBytesWritten
         }
     }
@@ -87,6 +117,14 @@ extension EPGDownloader: URLSessionDownloadDelegate {
         let originalURL = downloadTask.originalRequest?.url
         do {
             let dest = try self.saveToStorage(tempURL: location, originalURL: originalURL ?? URL(fileURLWithPath: "guide.xml"))
+            if let http = downloadTask.response as? HTTPURLResponse {
+                if let etag = http.allHeaderFields["ETag"] as? String {
+                    UserDefaults.standard.set(etag, forKey: etagKey(originalURL?.absoluteString ?? ""))
+                }
+                if let lastMod = http.allHeaderFields["Last-Modified"] as? String {
+                    UserDefaults.standard.set(lastMod, forKey: lastModKey(originalURL?.absoluteString ?? ""))
+                }
+            }
             DispatchQueue.main.async {
                 self.lastSavedURL = dest
                 if let size = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? NSNumber)?.int64Value {
@@ -104,9 +142,21 @@ extension EPGDownloader: URLSessionDownloadDelegate {
     }
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        let http = task.response as? HTTPURLResponse
         DispatchQueue.main.async {
             self.isDownloading = false
-            if let error = error as NSError?, error.code != NSURLErrorCancelled {
+            if let http = http, http.statusCode == 304 {
+                // Not modified: reuse cached file
+                if let reqURL = task.originalRequest?.url, let cached = self.cachedFileURL(for: reqURL) {
+                    self.lastSavedURL = cached
+                    if let size = (try? FileManager.default.attributesOfItem(atPath: cached.path)[.size] as? NSNumber)?.int64Value {
+                        self.bytesReceived = size
+                        self.totalBytesExpected = max(self.totalBytesExpected, size)
+                    }
+                }
+                self.lastResult = "Not modified (using cached)"
+                self.errorMessage = nil
+            } else if let error = error as NSError?, error.code != NSURLErrorCancelled {
                 self.errorMessage = error.localizedDescription
                 self.lastResult = "Failed: \(error.localizedDescription)"
             } else if (error as NSError?)?.code == NSURLErrorCancelled {

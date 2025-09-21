@@ -33,16 +33,24 @@ class SettingsManager: ObservableObject {
         }
     }
     
+    @Published var autoLoadEPGOnLaunch: Bool {
+        didSet {
+            UserDefaults.standard.set(autoLoadEPGOnLaunch, forKey: autoLoadEPGKey)
+        }
+    }
+    
     private let m3uURLKey = "M3UURL"
     private let epgURLKey = "EPGURL"
     private let autoRefreshKey = "AutoRefreshInterval"
     private let vlcSchemeKey = "UseVLCScheme"
+    private let autoLoadEPGKey = "AutoLoadEPGOnLaunch"
     
     init() {
         self.m3uURL = UserDefaults.standard.string(forKey: m3uURLKey) ?? Secrets.defaultM3UURL
         self.epgURL = UserDefaults.standard.string(forKey: epgURLKey) ?? Secrets.defaultEPGURL
         self.autoRefreshInterval = UserDefaults.standard.object(forKey: autoRefreshKey) as? Int ?? 1440 // 24 hours
         self.useVLCScheme = UserDefaults.standard.object(forKey: vlcSchemeKey) as? Bool ?? true
+        self.autoLoadEPGOnLaunch = UserDefaults.standard.object(forKey: autoLoadEPGKey) as? Bool ?? true
     }
     
     func resetToDefaults() {
@@ -50,6 +58,7 @@ class SettingsManager: ObservableObject {
         epgURL = Secrets.defaultEPGURL
         autoRefreshInterval = 1440
         useVLCScheme = true
+        autoLoadEPGOnLaunch = true
     }
     
     func isValidURL(_ urlString: String) -> Bool {
