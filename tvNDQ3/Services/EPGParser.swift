@@ -33,6 +33,16 @@ final class EPGParser: NSObject, XMLParserDelegate {
         "yyyyMMddHHmm"
     ]
     
+    private func createDateFormatters() -> [DateFormatter] {
+        let locale = Locale(identifier: "en_US_POSIX")
+        return dateFormats.map { fmt in
+            let df = DateFormatter()
+            df.locale = locale
+            df.dateFormat = fmt
+            return df
+        }
+    }
+    
     func parse(data: Data) -> (channels: [String: String], programs: [EPGProgram]) {
         channelNamesById.removeAll()
         programs.removeAll()
@@ -40,6 +50,22 @@ final class EPGParser: NSObject, XMLParserDelegate {
         parser.delegate = self
         parser.shouldProcessNamespaces = false
         parser.parse()
+        return (channelNamesById, programs)
+    }
+    
+    func parse(fileURL: URL) -> (channels: [String: String], programs: [EPGProgram]) {
+        channelNamesById.removeAll()
+        programs.removeAll()
+        if let parser = XMLParser(contentsOf: fileURL) {
+            parser.delegate = self
+            parser.shouldProcessNamespaces = false
+            parser.parse()
+        } else {
+            // Fallback to reading data if needed
+            if let data = try? Data(contentsOf: fileURL) {
+                _ = parse(data: data)
+            }
+        }
         return (channelNamesById, programs)
     }
     
@@ -102,9 +128,12 @@ final class EPGParser: NSObject, XMLParserDelegate {
             let idx = s.index(s.startIndex, offsetBy: 14)
             s.insert(" ", at: idx)
         }
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
+        
+        // Create formatters locally to avoid thread safety issues
+        let locale = Locale(identifier: "en_US_POSIX")
         for fmt in dateFormats {
+            let df = DateFormatter()
+            df.locale = locale
             df.dateFormat = fmt
             if let d = df.date(from: s) { return d }
         }

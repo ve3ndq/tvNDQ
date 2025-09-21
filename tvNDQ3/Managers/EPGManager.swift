@@ -32,9 +32,9 @@ final class EPGManager: ObservableObject {
     }
     
     func loadFromFile(at url: URL) {
-        do {
-            let data = try Data(contentsOf: url)
-            let result = parser.parse(data: data)
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Stream-parse from file to reduce memory footprint
+            let result = self.parser.parse(fileURL: url)
             var byName: [String: [EPGProgram]] = [:]
             var byId: [String: [EPGProgram]] = [:]
             for p in result.programs {
@@ -56,10 +56,6 @@ final class EPGManager: ObservableObject {
                 self.errorMessage = nil
                 // Persist last file path for next launch
                 UserDefaults.standard.set(url.path, forKey: self.lastEPGFilePathKey)
-            }
-        } catch {
-            DispatchQueue.main.async {
-                self.errorMessage = error.localizedDescription
             }
         }
     }
